@@ -19,28 +19,34 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Unzip Project Files (if zipped)
-        run: |
-          if [ -f "gemini-gecko-android-project-FINAL.zip" ]; then
-            unzip -o gemini-gecko-android-project-FINAL.zip
-          elif [ -f "gemini-gecko-android-project.zip" ]; then
-            unzip -o gemini-gecko-android-project.zip
-          fi
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.7'
+          cache-disabled: true
 
-      - name: Regenerate Missing Gradle Wrapper JAR
+      - name: Extract Project Files
         run: |
-          cd android
+          # If a ZIP archive exists in root, unzip it
+          for zip in *.zip; do
+            if [ -f "$zip" ]; then
+              echo "Unzipping $zip..."
+              unzip -o "$zip"
+            fi
+          done
+
+          # Locate gradlew or settings.gradle(.kts)
+          if [ -d "android" ]; then
+            echo "PROJECT_DIR=android" >> $GITHUB_ENV
+          else
+            echo "PROJECT_DIR=." >> $GITHUB_ENV
+          fi
+
+      - name: Regenerate Wrapper & Build APK
+        run: |
+          cd ${{ env.PROJECT_DIR }}
           gradle wrapper --gradle-version 8.7
           chmod +x gradlew
-
-      - name: Compile Debug APK
-        run: |
-          cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
@@ -48,4 +54,4 @@ jobs:
         if: always()
         with:
           name: GeminiGecko-Debug-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: "**/build/outputs/apk/debug/*.apk"
