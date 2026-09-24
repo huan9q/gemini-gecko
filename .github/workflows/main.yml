@@ -22,12 +22,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
           cache-disabled: true
 
       - name: Extract Project Files
         run: |
-          # If a ZIP archive exists in root, unzip it
           for zip in *.zip; do
             if [ -f "$zip" ]; then
               echo "Unzipping $zip..."
@@ -35,7 +34,6 @@ jobs:
             fi
           done
 
-          # Locate gradlew or settings.gradle(.kts)
           if [ -d "android" ]; then
             echo "PROJECT_DIR=android" >> $GITHUB_ENV
           else
@@ -45,7 +43,7 @@ jobs:
       - name: Regenerate Wrapper & Build APK
         run: |
           cd ${{ env.PROJECT_DIR }}
-          gradle wrapper --gradle-version 8.7
+          gradle wrapper --gradle-version 8.9
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
