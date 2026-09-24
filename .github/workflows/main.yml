@@ -40,35 +40,31 @@ jobs:
             echo "PROJECT_DIR=." >> $GITHUB_ENV
           fi
 
-      - name: Resolve Real GeckoView Version from Mozilla Maven
+      - name: Resolve GeckoView & Align SDK Target
         run: |
           cd ${{ env.PROJECT_DIR }}
 
-          # 1. Fetch the exact latest version directly from Mozilla's Maven index
+          # 1. Fetch live latest version from Mozilla Maven metadata
           METADATA_URL="https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview-omni/maven-metadata.xml"
           REAL_VERSION=$(curl -sSL "$METADATA_URL" | grep -oPm1 "(?<=<latest>)[^<]+")
+          [ -z "$REAL_VERSION" ] && REAL_VERSION=$(curl -sSL "$METADATA_URL" | grep -oPm1 "(?<=<release>)[^<]+")
+          echo "Using Mozilla GeckoView: $REAL_VERSION"
 
-          if [ -z "$REAL_VERSION" ]; then
-            REAL_VERSION=$(curl -sSL "$METADATA_URL" | grep -oPm1 "(?<=<release>)[^<]+")
+          # 2. Add Mozilla repository to settings.gradle.kts
+          if [ -f "settings.gradle.kts" ] && ! grep -q "maven.mozilla.org" settings.gradle.kts; then
+            sed -i '/repositories {/a \        maven { url = java.net.URI("https://maven.mozilla.org/maven2/") }' settings.gradle.kts
           fi
 
-          echo "Found official Mozilla GeckoView version: $REAL_VERSION"
-
-          # 2. Ensure Mozilla Maven repository exists in settings.gradle.kts
-          if [ -f "settings.gradle.kts" ]; then
-            if ! grep -q "maven.mozilla.org" settings.gradle.kts; then
-              sed -i '/repositories {/a \        maven { url = java.net.URI("https://maven.mozilla.org/maven2/") }' settings.gradle.kts
-            fi
-          fi
-
-          # 3. Patch build.gradle.kts
+          # 3. Patch dependency versions
           find . -type f -name "build.gradle.kts" -exec sed -i -E "s/geckoview-omni:[0-9]+(\.[0-9]+)+/geckoview-omni:$REAL_VERSION/g" {} +
-
-          # 4. Patch libs.versions.toml
           if [ -f "gradle/libs.versions.toml" ]; then
             sed -i -E "s/geckoview = \"[^\"]+\"/geckoview = \"$REAL_VERSION\"/g" gradle/libs.versions.toml
             sed -i -E "s/geckoview-omni:[^\"]+/geckoview-omni:$REAL_VERSION/g" gradle/libs.versions.toml
           fi
+
+          # 4. Bump compileSdk to 36 and suppress SDK check mismatch
+          find . -type f -name "build.gradle.kts" -exec sed -i -E 's/compileSdk\s*=\s*[0-9]+/compileSdk = 36/g' {} +
+          echo "android.suppressUnsupportedCompileSdk=36" >> gradle.properties
 
       - name: Build Debug APK
         run: |
