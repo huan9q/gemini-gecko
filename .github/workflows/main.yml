@@ -5,19 +5,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Setup Gradle
+
+      - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
-      - name: Unzip and Build
+        with:
+          gradle-version: '8.7'
+
+      - name: Unzip Project
         run: |
-          unzip gemini-gecko-android-project-FINAL.zip
+          unzip -o gemini-gecko-android-project-FINAL.zip
+
+      - name: Build Debug APK
+        run: |
           cd android
-          gradle assembleDebug
-      - name: Upload APK
+          chmod +x gradlew || true
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: GeminiGecko-Debug-APK
